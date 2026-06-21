@@ -16,6 +16,14 @@ jobs:
       - run: dotnet build BitwardenCli.Core.slnx -c Release --no-restore
       - run: dotnet test BitwardenCli.Core.slnx -c Release --no-build
       - run: dotnet pack src/BitwardenCli.Core/BitwardenCli.Core.csproj -c Release --no-build -o artifacts
+      - shell: pwsh
+        run: |
+          $package = Get-ChildItem artifacts/BitwardenCli.Core.*.nupkg -Exclude *.snupkg | Select-Object -First 1
+          if (-not $package) { throw "Package was not generated." }
+          $entries = tar -tf $package.FullName
+          if ($entries -notcontains 'lib/net10.0/BitwardenCli.Core.dll') {
+            throw "Package is missing the library assembly."
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: packages
