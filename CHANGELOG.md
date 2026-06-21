@@ -30,3 +30,4 @@ All notable changes to this project will be documented in this file.
 - Send file download and receive operations.
 - Strongly typed Send, organization member and device approval responses with extension-data compatibility.
 - Opt-in authenticated vault mutation and account-isolation integration tests.
+- Compatible parsing for object-shaped FIDO2 credentials and string attachment sizes.

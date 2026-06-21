@@ -31,4 +31,26 @@ public sealed class VaultModelSerializationTests
         Assert.Equal("note.txt", Assert.Single(item.Attachments).FileName);
         Assert.Equal(2, item.AdditionalProperties!["futureSchemaField"].GetProperty("version").GetInt32());
     }
+
+    [Fact]
+    public void Parses_object_fido_credentials_and_string_attachment_size()
+    {
+        const string json = """
+            {
+              "object": "item",
+              "id": "item-id",
+              "type": 1,
+              "name": "Passkey login",
+              "login": {
+                "fido2Credentials": [{ "credentialId": "credential-id", "rpId": "example.com" }]
+              },
+              "attachments": [{ "id": "attachment-id", "fileName": "note.txt", "size": "12" }]
+            }
+            """;
+
+        var item = JsonSerializer.Deserialize<VaultItem>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Equal("credential-id", Assert.Single(item!.Login!.Fido2Credentials).GetProperty("credentialId").GetString());
+        Assert.Equal(12, Assert.Single(item.Attachments).Size);
+    }
 }

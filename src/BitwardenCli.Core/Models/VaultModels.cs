@@ -56,7 +56,7 @@ public sealed record VaultLogin
     public string? Password { get; init; }
     public string? Totp { get; init; }
     public DateTimeOffset? PasswordRevisionDate { get; init; }
-    public IReadOnlyList<string> Fido2Credentials { get; init; } = [];
+    public IReadOnlyList<JsonElement> Fido2Credentials { get; init; } = [];
 }
 
 public sealed record VaultUri
@@ -114,6 +114,7 @@ public sealed record VaultAttachment
 {
     public string Id { get; init; } = string.Empty;
     public string FileName { get; init; } = string.Empty;
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public long? Size { get; init; }
     public string? SizeName { get; init; }
     public string? Url { get; init; }
