@@ -9,6 +9,9 @@ using BitwardenCli.Core.Attachments;
 using BitwardenCli.Core.Folders;
 using BitwardenCli.Core.Generator;
 using BitwardenCli.Core.Organizations;
+using BitwardenCli.Core.Administration;
+using BitwardenCli.Core.ImportExport;
+using BitwardenCli.Core.Sends;
 
 namespace BitwardenCli.Core;
 
@@ -27,6 +30,9 @@ public sealed class BitwardenCliClient
         Attachments = new AttachmentClient(context);
         Organizations = new OrganizationClient(context);
         Generator = new GeneratorClient(context);
+        ImportExport = new ImportExportClient(context);
+        Sends = new SendClient(context);
+        Administration = new AdministrationClient(context);
     }
 
     /// <summary>Gets the isolated account profile.</summary>
@@ -52,6 +58,12 @@ public sealed class BitwardenCliClient
     public OrganizationClient Organizations { get; }
     /// <summary>Gets password and passphrase generation commands.</summary>
     public GeneratorClient Generator { get; }
+    /// <summary>Gets import and export commands.</summary>
+    public ImportExportClient ImportExport { get; }
+    /// <summary>Gets Bitwarden Send commands.</summary>
+    public SendClient Sends { get; }
+    /// <summary>Gets organization administration commands.</summary>
+    public AdministrationClient Administration { get; }
 
     /// <summary>Gets the current account status.</summary>
     public Task<CliResult<BitwardenStatus>> GetStatusAsync(CancellationToken cancellationToken = default) =>

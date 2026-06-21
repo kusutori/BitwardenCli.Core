@@ -22,3 +22,6 @@ All notable changes to this project will be documented in this file.
 - Attachment upload, download and delete commands with absolute-path validation.
 - Organization, collection and organization-collection listing.
 - Password and passphrase generation with typed options.
+- Vault import format discovery, import and passwordless export commands.
+- Send list/get/create/edit/delete/receive and password-removal commands.
+- Device approval and organization member confirmation commands.
