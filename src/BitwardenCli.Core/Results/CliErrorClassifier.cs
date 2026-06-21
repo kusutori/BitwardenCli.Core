@@ -72,7 +72,13 @@ internal static class CliErrorClassifier
             return new CliError(CliErrorCode.Conflict, message, true);
         }
 
-        if (ContainsAny(normalized, "unknown option", "unknown command", "required argument", "invalid argument"))
+        if (ContainsAny(
+            normalized,
+            "unknown option",
+            "unknown command",
+            "required argument",
+            "invalid argument",
+            "was not provided"))
         {
             return new CliError(CliErrorCode.InvalidArguments, message);
         }
