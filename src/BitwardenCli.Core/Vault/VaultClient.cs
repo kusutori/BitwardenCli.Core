@@ -54,6 +54,16 @@ public sealed class VaultClient
     public Task<CliResult<string>> GetTotpAsync(string id, CancellationToken cancellationToken = default) => GetTextAsync("totp", id, cancellationToken);
     public Task<CliResult<string>> GetNotesAsync(string id, CancellationToken cancellationToken = default) => GetTextAsync("notes", id, cancellationToken);
     public Task<CliResult<string>> GetExposedAsync(string id, CancellationToken cancellationToken = default) => GetTextAsync("exposed", id, cancellationToken);
+    public Task<CliResult<string>> GetFingerprintAsync(string phrase, CancellationToken cancellationToken = default) => GetTextAsync("fingerprint", phrase, cancellationToken);
+
+    public async Task<CliResult<JsonObject>> GetTemplateAsync(string objectName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(objectName);
+        var process = await RunAsync(new CliCommand("get-template", CliArgument.Plain("get"), CliArgument.Plain("template"), CliArgument.Plain(objectName)), false, cancellationToken);
+        if (!process.IsSuccess) return process.ExitCode == -1 ? AccountResultFactory.MissingSession<JsonObject>() : CliResultFactory.Failure<JsonObject>(process);
+        try { return JsonNode.Parse(process.StandardOutput) is JsonObject value ? CliResultFactory.Success(value, process) : CliResultFactory.InvalidResponse<JsonObject>(process, "The CLI returned an invalid template."); }
+        catch (JsonException) { return CliResultFactory.InvalidResponse<JsonObject>(process, "The CLI returned an invalid template."); }
+    }
 
     public async Task<CliResult<VaultItem>> CreateItemAsync(JsonObject item, CancellationToken cancellationToken = default)
     {

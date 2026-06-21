@@ -4,6 +4,7 @@ using BitwardenCli.Core.Internal;
 using BitwardenCli.Core.Models;
 using BitwardenCli.Core.Results;
 using BitwardenCli.Core.Serialization;
+using System.Text.Json.Nodes;
 
 namespace BitwardenCli.Core.Organizations;
 
@@ -23,6 +24,51 @@ public sealed class OrganizationClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(organizationId);
         return ListAsync("org-collections", BitwardenJsonContext.Default.BitwardenCollectionArray, cancellationToken, organizationId);
+    }
+
+    public Task<CliResult<IReadOnlyList<JsonObject>>> ListMembersAsync(string organizationId, CancellationToken cancellationToken = default) =>
+        ListJsonObjectsAsync("org-members", organizationId, cancellationToken);
+
+    public Task<CliResult<JsonObject>> CreateOrganizationCollectionAsync(string organizationId, JsonObject collection, CancellationToken cancellationToken = default) =>
+        WriteOrganizationCollectionAsync("create-org-collection", "create", organizationId, null, collection, cancellationToken);
+
+    public Task<CliResult<JsonObject>> EditOrganizationCollectionAsync(string organizationId, string collectionId, JsonObject collection, CancellationToken cancellationToken = default) =>
+        WriteOrganizationCollectionAsync("edit-org-collection", "edit", organizationId, collectionId, collection, cancellationToken);
+
+    public async Task<CliResult> DeleteOrganizationCollectionAsync(string organizationId, string collectionId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(organizationId); ArgumentException.ThrowIfNullOrWhiteSpace(collectionId);
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession();
+        var command = new CliCommand("delete-org-collection", CliArgument.Plain("delete"), CliArgument.Plain("org-collection"), CliArgument.Plain(collectionId), CliArgument.Plain("--organizationid"), CliArgument.Plain(organizationId));
+        return CliResultFactory.FromProcess(await _context.RunAsync(command, true, true, cancellationToken));
+    }
+
+    private async Task<CliResult<JsonObject>> WriteOrganizationCollectionAsync(string operation, string verb, string organizationId, string? collectionId, JsonObject collection, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(organizationId); ArgumentNullException.ThrowIfNull(collection);
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<JsonObject>();
+        var args = new List<CliArgument> { CliArgument.Plain(verb), CliArgument.Plain("org-collection") };
+        if (collectionId is not null) { ArgumentException.ThrowIfNullOrWhiteSpace(collectionId); args.Add(CliArgument.Plain(collectionId)); }
+        args.Add(CliArgument.Plain("--organizationid")); args.Add(CliArgument.Plain(organizationId));
+        var process = await _context.RunAsync(JsonCommand.WithPayload(operation, collection, [.. args]), true, true, cancellationToken);
+        if (!process.IsSuccess) return CliResultFactory.Failure<JsonObject>(process);
+        try { return JsonNode.Parse(process.StandardOutput) is JsonObject value ? CliResultFactory.Success(value, process) : CliResultFactory.InvalidResponse<JsonObject>(process, "The CLI returned invalid collection JSON."); }
+        catch (JsonException) { return CliResultFactory.InvalidResponse<JsonObject>(process, "The CLI returned invalid collection JSON."); }
+    }
+
+    private async Task<CliResult<IReadOnlyList<JsonObject>>> ListJsonObjectsAsync(string kind, string organizationId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(organizationId);
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<IReadOnlyList<JsonObject>>();
+        var command = new CliCommand($"list-{kind}", CliArgument.Plain("list"), CliArgument.Plain(kind), CliArgument.Plain("--organizationid"), CliArgument.Plain(organizationId));
+        var process = await _context.RunAsync(command, true, false, cancellationToken);
+        if (!process.IsSuccess) return CliResultFactory.Failure<IReadOnlyList<JsonObject>>(process);
+        try
+        {
+            if (JsonNode.Parse(process.StandardOutput) is not JsonArray array) return CliResultFactory.InvalidResponse<IReadOnlyList<JsonObject>>(process, "The CLI returned invalid organization member JSON.");
+            return CliResultFactory.Success<IReadOnlyList<JsonObject>>(array.OfType<JsonObject>().ToArray(), process);
+        }
+        catch (JsonException) { return CliResultFactory.InvalidResponse<IReadOnlyList<JsonObject>>(process, "The CLI returned invalid organization member JSON."); }
     }
 
     private async Task<CliResult<IReadOnlyList<T>>> ListAsync<T>(string kind, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T[]> typeInfo, CancellationToken cancellationToken, string? organizationId = null)

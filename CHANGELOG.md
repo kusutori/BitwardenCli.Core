@@ -25,3 +25,6 @@ All notable changes to this project will be documented in this file.
 - Vault import format discovery, import and passwordless export commands.
 - Send list/get/create/edit/delete/receive and password-removal commands.
 - Device approval and organization member confirmation commands.
+- Status-driven profile metadata refresh and non-interactive MFA code support.
+- Template, fingerprint, organization member and organization collection commands.
+- Send file download and receive operations.

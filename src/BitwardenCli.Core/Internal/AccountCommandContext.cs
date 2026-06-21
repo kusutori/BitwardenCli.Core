@@ -18,9 +18,15 @@ internal sealed class AccountCommandContext
         _runner = runner;
     }
 
-    public BitwardenAccountProfile Profile { get; }
+    public BitwardenAccountProfile Profile { get; private set; }
 
     public BitwardenSessionState Session { get; }
+
+    public void UpdateProfile(Func<BitwardenAccountProfile, BitwardenAccountProfile> update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        Profile = update(Profile);
+    }
 
     public async Task<CliProcessResult> RunAsync(
         CliCommand command,

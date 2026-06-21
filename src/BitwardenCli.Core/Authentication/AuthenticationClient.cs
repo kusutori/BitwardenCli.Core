@@ -5,6 +5,7 @@ using BitwardenCli.Core.Internal;
 using BitwardenCli.Core.Models;
 using BitwardenCli.Core.Results;
 using BitwardenCli.Core.Serialization;
+using BitwardenCli.Core.Accounts;
 
 namespace BitwardenCli.Core.Authentication;
 
@@ -36,9 +37,19 @@ public sealed class AuthenticationClient
             var status = JsonSerializer.Deserialize(
                 process.StandardOutput,
                 BitwardenJsonContext.Default.BitwardenStatus);
-            return status is null
-                ? CliResultFactory.InvalidResponse<BitwardenStatus>(process, "Bitwarden CLI returned an empty status.")
-                : CliResultFactory.Success(status, process);
+            if (status is null)
+            {
+                return CliResultFactory.InvalidResponse<BitwardenStatus>(process, "Bitwarden CLI returned an empty status.");
+            }
+
+            _context.UpdateProfile(profile => profile with
+            {
+                Email = status.UserEmail ?? profile.Email,
+                UserId = status.UserId ?? profile.UserId,
+                ServerUrl = status.ServerUrl ?? profile.ServerUrl,
+                LastUsedAt = DateTimeOffset.UtcNow
+            });
+            return CliResultFactory.Success(status, process);
         }
         catch (JsonException exception)
         {
@@ -85,6 +96,16 @@ public sealed class AuthenticationClient
         }
 
         var status = await GetStatusAsync(cancellationToken).ConfigureAwait(false);
+        _context.UpdateProfile(profile => profile with
+        {
+            AuthenticationKind = request switch
+            {
+                PasswordLoginRequest => BitwardenAuthenticationKind.Password,
+                ApiKeyLoginRequest => BitwardenAuthenticationKind.ApiKey,
+                SsoLoginRequest => BitwardenAuthenticationKind.Sso,
+                _ => profile.AuthenticationKind
+            }
+        });
         return CliResultFactory.Success(
             new LoginResult(status.IsSuccess ? status.Value : null, _context.Session.IsUnlocked),
             process);
@@ -234,7 +255,6 @@ public sealed class AuthenticationClient
             arguments.Add(CliArgument.Plain(method.ToString(CultureInfo.InvariantCulture)));
         }
 
-        string? standardInput = null;
         if (request.IncludeTwoFactorCode)
         {
             var code = await secretProvider.GetSecretAsync(
@@ -246,16 +266,15 @@ public sealed class AuthenticationClient
                 return MissingSecretProcess(SecretPurpose.TwoFactorCode);
             }
 
-            standardInput = code + Environment.NewLine;
+            arguments.Add(CliArgument.Plain("--code"));
+            arguments.Add(CliArgument.Secret(code));
         }
 
         return await _context.RunAsync(
             new CliCommand("login-password", arguments.ToArray())
             {
                 Environment = [CliEnvironmentVariable.Secret(passwordVariable, password)],
-                StandardInput = standardInput,
-                IsStandardInputSensitive = standardInput is not null,
-                NoInteraction = standardInput is null
+                NoInteraction = true
             },
             includeSession: false,
             serializeMutation: true,

@@ -91,7 +91,7 @@ public sealed class AuthenticationClientTests
     }
 
     [Fact]
-    public async Task Two_factor_code_uses_sensitive_standard_input()
+    public async Task Two_factor_code_uses_redacted_cli_argument()
     {
         using var temp = new TemporaryDirectory();
         var runner = new CapturingRunner(
@@ -111,10 +111,11 @@ public sealed class AuthenticationClientTests
 
         Assert.True(result.IsSuccess);
         var command = runner.Commands[0];
-        Assert.True(command.IsStandardInputSensitive);
-        Assert.Contains("123456", command.StandardInput, StringComparison.Ordinal);
-        Assert.DoesNotContain(command.Arguments, argument => argument.Value == "123456");
-        Assert.False(command.NoInteraction);
+        Assert.Null(command.StandardInput);
+        Assert.Contains(command.Arguments, argument => argument.Value == "--code");
+        Assert.Contains(command.Arguments, argument => argument.Value == "123456" && argument.IsSensitive);
+        Assert.Contains("[REDACTED]", command.GetSafeArguments());
+        Assert.True(command.NoInteraction);
     }
 
     [Fact]

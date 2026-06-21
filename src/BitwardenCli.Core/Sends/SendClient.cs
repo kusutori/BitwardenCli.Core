@@ -15,6 +15,24 @@ public sealed class SendClient
     public Task<CliResult<JsonArray>> ListAsync(CancellationToken cancellationToken = default) => RunJsonArrayAsync(new CliCommand("list-sends", CliArgument.Plain("send"), CliArgument.Plain("list")), false, cancellationToken);
     public Task<CliResult<JsonObject>> GetAsync(string id, CancellationToken cancellationToken = default) { ArgumentException.ThrowIfNullOrWhiteSpace(id); return RunJsonObjectAsync(new CliCommand("get-send", CliArgument.Plain("send"), CliArgument.Plain("get"), CliArgument.Plain(id)), false, cancellationToken); }
 
+    public async Task<CliResult> DownloadFileAsync(string id, string outputPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id); ValidateAbsolutePath(outputPath);
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession();
+        var command = new CliCommand("download-send", CliArgument.Plain("send"), CliArgument.Plain("get"), CliArgument.Plain(id), CliArgument.Plain("--output"), CliArgument.Plain(outputPath));
+        return CliResultFactory.FromProcess(await _context.RunAsync(command, true, false, cancellationToken));
+    }
+
+    public async Task<CliResult> ReceiveFileAsync(string url, string outputPath, string? password = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url); ValidateAbsolutePath(outputPath);
+        var environment = new List<CliEnvironmentVariable>();
+        var args = new List<CliArgument> { CliArgument.Plain("send"), CliArgument.Plain("receive"), CliArgument.Plain(url), CliArgument.Plain("--output"), CliArgument.Plain(outputPath) };
+        if (password is not null) { const string name = "BWCLI_SEND_PASSWORD"; args.Add(CliArgument.Plain("--passwordenv")); args.Add(CliArgument.Plain(name)); environment.Add(CliEnvironmentVariable.Secret(name, password)); }
+        var process = await _context.RunAsync(new CliCommand("receive-send-file", [.. args]) { Environment = environment }, false, false, cancellationToken);
+        return CliResultFactory.FromProcess(process);
+    }
+
     public Task<CliResult<JsonObject>> CreateAsync(JsonObject send, string? filePath = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(send);
