@@ -4,6 +4,7 @@ using BitwardenCli.Core.Internal;
 using BitwardenCli.Core.Models;
 using BitwardenCli.Core.Results;
 using BitwardenCli.Core.Synchronization;
+using BitwardenCli.Core.Vault;
 
 namespace BitwardenCli.Core;
 
@@ -17,6 +18,7 @@ public sealed class BitwardenCliClient
         _context = context;
         Authentication = new AuthenticationClient(context);
         Synchronization = new SynchronizationClient(context);
+        Vault = new VaultClient(context);
     }
 
     /// <summary>Gets the isolated account profile.</summary>
@@ -30,6 +32,9 @@ public sealed class BitwardenCliClient
 
     /// <summary>Gets synchronization commands.</summary>
     public SynchronizationClient Synchronization { get; }
+
+    /// <summary>Gets vault item commands.</summary>
+    public VaultClient Vault { get; }
 
     /// <summary>Gets the current account status.</summary>
     public Task<CliResult<BitwardenStatus>> GetStatusAsync(CancellationToken cancellationToken = default) =>

@@ -14,3 +14,7 @@ All notable changes to this project will be documented in this file.
 - Password, API key and SSO login flows, plus unlock, lock and logout operations.
 - Status, server configuration and synchronization commands.
 - Unit and opt-in real-CLI integration tests for profile isolation.
+- Vault item list/search/get/create/edit/clone/delete/restore/archive commands.
+- Scalar username, password, URI, notes, TOTP and exposed-password queries.
+- Collection assignment and organization move commands.
+- Nullable-safe vault DTOs with forward-compatible unknown JSON fields.
