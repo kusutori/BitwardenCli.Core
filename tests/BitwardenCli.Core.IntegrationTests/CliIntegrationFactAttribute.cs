@@ -14,3 +14,17 @@ internal sealed class CliIntegrationFactAttribute : FactAttribute
         }
     }
 }
+
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class AuthenticatedCliIntegrationFactAttribute : FactAttribute
+{
+    public AuthenticatedCliIntegrationFactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable("BITWARDEN_CLI_RUN_AUTH_TESTS") != "1" ||
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BITWARDEN_CLI_TEST_EMAIL")) ||
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BITWARDEN_CLI_TEST_PASSWORD")))
+        {
+            Skip = "Set BITWARDEN_CLI_RUN_AUTH_TESTS=1 plus BITWARDEN_CLI_TEST_EMAIL and BITWARDEN_CLI_TEST_PASSWORD to run authenticated isolation tests.";
+        }
+    }
+}

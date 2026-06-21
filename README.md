@@ -56,6 +56,9 @@ Command groups are available through `Authentication`, `Synchronization`, `Vault
 `Administration`. Every operation accepts a `CancellationToken` and returns a
 `CliResult` with a stable error category.
 
+See [the 0.1.0 migration guide](docs/migration-0.1.0.md) when replacing a copied
+application service.
+
 ## Security model
 
 - Account CLI data is isolated by profile directory.
