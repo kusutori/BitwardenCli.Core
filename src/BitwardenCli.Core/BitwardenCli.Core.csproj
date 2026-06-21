@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>BitwardenCli.Core</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>kusut</Authors>
     <Description>A secure, multi-account .NET client for the official Bitwarden CLI.</Description>
     <PackageTags>Bitwarden;CLI;password-manager;vault</PackageTags>
