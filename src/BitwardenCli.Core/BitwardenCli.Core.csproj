@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>BitwardenCli.Core</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>kusut</Authors>
+    <Description>A secure, multi-account .NET client for the official Bitwarden CLI.</Description>
+    <PackageTags>Bitwarden;CLI;password-manager;vault</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/kusut/BitwardenCli.Core</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/kusut/BitwardenCli.Core</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BitwardenCli.Core.Tests" />
+    <InternalsVisibleTo Include="BitwardenCli.Core.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

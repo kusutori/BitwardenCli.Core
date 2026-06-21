@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/BitwardenCli.ConsoleSample/BitwardenCli.ConsoleSample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/BitwardenCli.Core/BitwardenCli.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BitwardenCli.Core.IntegrationTests/BitwardenCli.Core.IntegrationTests.csproj" />
+    <Project Path="tests/BitwardenCli.Core.Tests/BitwardenCli.Core.Tests.csproj" />
+  </Folder>
+</Solution>
