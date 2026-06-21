@@ -3,6 +3,8 @@ using System.Text.Json.Nodes;
 using BitwardenCli.Core.Execution;
 using BitwardenCli.Core.Internal;
 using BitwardenCli.Core.Results;
+using BitwardenCli.Core.Models;
+using BitwardenCli.Core.Serialization;
 
 namespace BitwardenCli.Core.Administration;
 
@@ -12,7 +14,7 @@ public sealed class AdministrationClient
     private readonly AccountCommandContext _context;
     internal AdministrationClient(AccountCommandContext context) => _context = context;
 
-    public Task<CliResult<JsonArray>> ListDeviceApprovalsAsync(string organizationId, CancellationToken cancellationToken = default) => RunJsonArrayAsync("list-device-approvals", [CliArgument.Plain("device-approval"), CliArgument.Plain("list"), .. OrganizationOption(organizationId)], false, cancellationToken);
+    public Task<CliResult<IReadOnlyList<DeviceApprovalRequest>>> ListDeviceApprovalsAsync(string organizationId, CancellationToken cancellationToken = default) => RunApprovalsAsync("list-device-approvals", [CliArgument.Plain("device-approval"), CliArgument.Plain("list"), .. OrganizationOption(organizationId)], cancellationToken);
     public Task<CliResult> ApproveDeviceAsync(string organizationId, string requestId, CancellationToken cancellationToken = default) => RunMutationAsync("approve-device", "approve", organizationId, requestId, cancellationToken);
     public Task<CliResult> DenyDeviceAsync(string organizationId, string requestId, CancellationToken cancellationToken = default) => RunMutationAsync("deny-device", "deny", organizationId, requestId, cancellationToken);
     public Task<CliResult> ApproveAllDevicesAsync(string organizationId, CancellationToken cancellationToken = default) => RunMutationAsync("approve-all-devices", "approve-all", organizationId, null, cancellationToken);
@@ -32,12 +34,12 @@ public sealed class AdministrationClient
         return CliResultFactory.FromProcess(await _context.RunAsync(new CliCommand(operation, [.. args]), true, true, cancellationToken));
     }
 
-    private async Task<CliResult<JsonArray>> RunJsonArrayAsync(string operation, CliArgument[] args, bool mutation, CancellationToken cancellationToken)
+    private async Task<CliResult<IReadOnlyList<DeviceApprovalRequest>>> RunApprovalsAsync(string operation, CliArgument[] args, CancellationToken cancellationToken)
     {
-        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<JsonArray>();
-        var process = await _context.RunAsync(new CliCommand(operation, args), true, mutation, cancellationToken); if (!process.IsSuccess) return CliResultFactory.Failure<JsonArray>(process);
-        try { return JsonNode.Parse(process.StandardOutput) is JsonArray value ? CliResultFactory.Success(value, process) : CliResultFactory.InvalidResponse<JsonArray>(process, "The CLI returned invalid device approval JSON."); }
-        catch (JsonException) { return CliResultFactory.InvalidResponse<JsonArray>(process, "The CLI returned invalid device approval JSON."); }
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<IReadOnlyList<DeviceApprovalRequest>>();
+        var process = await _context.RunAsync(new CliCommand(operation, args), true, false, cancellationToken); if (!process.IsSuccess) return CliResultFactory.Failure<IReadOnlyList<DeviceApprovalRequest>>(process);
+        try { var values = JsonSerializer.Deserialize(process.StandardOutput, BitwardenJsonContext.Default.DeviceApprovalRequestArray); return values is null ? CliResultFactory.InvalidResponse<IReadOnlyList<DeviceApprovalRequest>>(process, "The CLI returned invalid device approval JSON.") : CliResultFactory.Success<IReadOnlyList<DeviceApprovalRequest>>(values, process); }
+        catch (JsonException) { return CliResultFactory.InvalidResponse<IReadOnlyList<DeviceApprovalRequest>>(process, "The CLI returned invalid device approval JSON."); }
     }
 
     private static CliArgument[] OrganizationOption(string organizationId) { ArgumentException.ThrowIfNullOrWhiteSpace(organizationId); return [CliArgument.Plain("--organizationid"), CliArgument.Plain(organizationId)]; }

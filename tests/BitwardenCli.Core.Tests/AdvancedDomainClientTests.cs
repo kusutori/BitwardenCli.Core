@@ -41,6 +41,21 @@ public sealed class AdvancedDomainClientTests
     }
 
     [Fact]
+    public async Task Advanced_json_models_keep_unknown_fields()
+    {
+        using var temp = new TemporaryDirectory();
+        var runner = new CapturingRunner(CapturingRunner.Success("session"), CapturingRunner.Success("""[{"object":"send","id":"send-id","name":"Test","type":0,"future":{"enabled":true}}]"""));
+        var client = CreateClient(temp.GetPath("account"), runner);
+        await client.UnlockAsync(DelegateSecretProvider.FromMasterPassword("password"));
+
+        var result = await client.Sends.ListAsync();
+
+        Assert.True(result.IsSuccess);
+        var send = Assert.Single(result.Value!);
+        Assert.True(send.AdditionalProperties!["future"].GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
     public async Task Export_uses_typed_format_and_absolute_output()
     {
         using var temp = new TemporaryDirectory();

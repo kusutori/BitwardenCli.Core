@@ -3,6 +3,8 @@ using System.Text.Json.Nodes;
 using BitwardenCli.Core.Execution;
 using BitwardenCli.Core.Internal;
 using BitwardenCli.Core.Results;
+using BitwardenCli.Core.Models;
+using BitwardenCli.Core.Serialization;
 
 namespace BitwardenCli.Core.Sends;
 
@@ -12,8 +14,8 @@ public sealed class SendClient
     private readonly AccountCommandContext _context;
     internal SendClient(AccountCommandContext context) => _context = context;
 
-    public Task<CliResult<JsonArray>> ListAsync(CancellationToken cancellationToken = default) => RunJsonArrayAsync(new CliCommand("list-sends", CliArgument.Plain("send"), CliArgument.Plain("list")), false, cancellationToken);
-    public Task<CliResult<JsonObject>> GetAsync(string id, CancellationToken cancellationToken = default) { ArgumentException.ThrowIfNullOrWhiteSpace(id); return RunJsonObjectAsync(new CliCommand("get-send", CliArgument.Plain("send"), CliArgument.Plain("get"), CliArgument.Plain(id)), false, cancellationToken); }
+    public Task<CliResult<IReadOnlyList<BitwardenSend>>> ListAsync(CancellationToken cancellationToken = default) => RunSendListAsync(new CliCommand("list-sends", CliArgument.Plain("send"), CliArgument.Plain("list")), cancellationToken);
+    public Task<CliResult<BitwardenSend>> GetAsync(string id, CancellationToken cancellationToken = default) { ArgumentException.ThrowIfNullOrWhiteSpace(id); return RunSendAsync(new CliCommand("get-send", CliArgument.Plain("send"), CliArgument.Plain("get"), CliArgument.Plain(id)), false, cancellationToken); }
 
     public async Task<CliResult> DownloadFileAsync(string id, string outputPath, CancellationToken cancellationToken = default)
     {
@@ -33,18 +35,18 @@ public sealed class SendClient
         return CliResultFactory.FromProcess(process);
     }
 
-    public Task<CliResult<JsonObject>> CreateAsync(JsonObject send, string? filePath = null, CancellationToken cancellationToken = default)
+    public Task<CliResult<BitwardenSend>> CreateAsync(JsonObject send, string? filePath = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(send);
         var args = new List<CliArgument> { CliArgument.Plain("send"), CliArgument.Plain("create") };
         if (filePath is not null) { ValidateAbsolutePath(filePath); args.Add(CliArgument.Plain("--file")); args.Add(CliArgument.Plain(filePath)); }
-        return RunJsonObjectAsync(JsonCommand.WithPayload("create-send", send, [.. args]), true, cancellationToken);
+        return RunSendAsync(JsonCommand.WithPayload("create-send", send, [.. args]), true, cancellationToken);
     }
 
-    public Task<CliResult<JsonObject>> EditAsync(string id, JsonObject send, CancellationToken cancellationToken = default)
+    public Task<CliResult<BitwardenSend>> EditAsync(string id, JsonObject send, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id); ArgumentNullException.ThrowIfNull(send);
-        return RunJsonObjectAsync(JsonCommand.WithPayload("edit-send", send, CliArgument.Plain("send"), CliArgument.Plain("edit"), CliArgument.Plain("--itemid"), CliArgument.Plain(id)), true, cancellationToken);
+        return RunSendAsync(JsonCommand.WithPayload("edit-send", send, CliArgument.Plain("send"), CliArgument.Plain("edit"), CliArgument.Plain("--itemid"), CliArgument.Plain(id)), true, cancellationToken);
     }
 
     public Task<CliResult> DeleteAsync(string id, CancellationToken cancellationToken = default) => MutateAsync("delete-send", id, cancellationToken);
@@ -67,24 +69,20 @@ public sealed class SendClient
         return CliResultFactory.FromProcess(process);
     }
 
-    private async Task<CliResult<JsonArray>> RunJsonArrayAsync(CliCommand command, bool mutation, CancellationToken cancellationToken)
+    private async Task<CliResult<IReadOnlyList<BitwardenSend>>> RunSendListAsync(CliCommand command, CancellationToken cancellationToken)
     {
-        var result = await RunJsonAsync(command, mutation, cancellationToken); if (!result.IsSuccess || result.Value is not JsonArray array) return result.IsSuccess ? CliResult<JsonArray>.Failure(new CliError(CliErrorCode.InvalidResponse, "The CLI returned invalid Send JSON."), result.ExitCode, result.StandardError, result.Duration) : CliResult<JsonArray>.Failure(result.Error!, result.ExitCode, result.StandardError, result.Duration);
-        return CliResult<JsonArray>.Success(array, result.ExitCode, result.StandardError, result.Duration);
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<IReadOnlyList<BitwardenSend>>();
+        var process = await _context.RunAsync(command, true, false, cancellationToken); if (!process.IsSuccess) return CliResultFactory.Failure<IReadOnlyList<BitwardenSend>>(process);
+        try { var values = JsonSerializer.Deserialize(process.StandardOutput, BitwardenJsonContext.Default.BitwardenSendArray); return values is null ? CliResultFactory.InvalidResponse<IReadOnlyList<BitwardenSend>>(process, "The CLI returned invalid Send JSON.") : CliResultFactory.Success<IReadOnlyList<BitwardenSend>>(values, process); }
+        catch (JsonException) { return CliResultFactory.InvalidResponse<IReadOnlyList<BitwardenSend>>(process, "The CLI returned invalid Send JSON."); }
     }
 
-    private async Task<CliResult<JsonObject>> RunJsonObjectAsync(CliCommand command, bool mutation, CancellationToken cancellationToken)
+    private async Task<CliResult<BitwardenSend>> RunSendAsync(CliCommand command, bool mutation, CancellationToken cancellationToken)
     {
-        var result = await RunJsonAsync(command, mutation, cancellationToken); if (!result.IsSuccess || result.Value is not JsonObject obj) return result.IsSuccess ? CliResult<JsonObject>.Failure(new CliError(CliErrorCode.InvalidResponse, "The CLI returned invalid Send JSON."), result.ExitCode, result.StandardError, result.Duration) : CliResult<JsonObject>.Failure(result.Error!, result.ExitCode, result.StandardError, result.Duration);
-        return CliResult<JsonObject>.Success(obj, result.ExitCode, result.StandardError, result.Duration);
-    }
-
-    private async Task<CliResult<JsonNode>> RunJsonAsync(CliCommand command, bool mutation, CancellationToken cancellationToken)
-    {
-        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<JsonNode>();
-        var process = await _context.RunAsync(command, true, mutation, cancellationToken); if (!process.IsSuccess) return CliResultFactory.Failure<JsonNode>(process);
-        try { return JsonNode.Parse(process.StandardOutput) is { } node ? CliResultFactory.Success(node, process) : CliResultFactory.InvalidResponse<JsonNode>(process, "The CLI returned invalid Send JSON."); }
-        catch (JsonException) { return CliResultFactory.InvalidResponse<JsonNode>(process, "The CLI returned invalid Send JSON."); }
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession<BitwardenSend>();
+        var process = await _context.RunAsync(command, true, mutation, cancellationToken); if (!process.IsSuccess) return CliResultFactory.Failure<BitwardenSend>(process);
+        try { return JsonSerializer.Deserialize(process.StandardOutput, BitwardenJsonContext.Default.BitwardenSend) is { } value ? CliResultFactory.Success(value, process) : CliResultFactory.InvalidResponse<BitwardenSend>(process, "The CLI returned invalid Send JSON."); }
+        catch (JsonException) { return CliResultFactory.InvalidResponse<BitwardenSend>(process, "The CLI returned invalid Send JSON."); }
     }
 
     private static void ValidateAbsolutePath(string path) { if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("Send file path must be absolute.", nameof(path)); }

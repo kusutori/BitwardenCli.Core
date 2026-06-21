@@ -28,3 +28,5 @@ All notable changes to this project will be documented in this file.
 - Status-driven profile metadata refresh and non-interactive MFA code support.
 - Template, fingerprint, organization member and organization collection commands.
 - Send file download and receive operations.
+- Strongly typed Send, organization member and device approval responses with extension-data compatibility.
+- Opt-in authenticated vault mutation and account-isolation integration tests.
