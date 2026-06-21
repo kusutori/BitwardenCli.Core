@@ -94,6 +94,23 @@ public sealed class VaultClientTests
         Assert.Equal(CliErrorCode.InvalidResponse, result.Error?.Code);
     }
 
+    [Fact]
+    public async Task Invalid_item_list_reports_item_index_and_json_path_without_output()
+    {
+        using var temp = new TemporaryDirectory();
+        const string output = """[{"id":"first","type":1,"name":"First"},{"id":"second","type":1,"name":"Second","reprompt":"not-a-number"}]""";
+        var runner = new CapturingRunner(CapturingRunner.Success("session"), CapturingRunner.Success(output));
+        var client = CreateClient(temp.GetPath("account"), runner);
+        await client.UnlockAsync(DelegateSecretProvider.FromMasterPassword("password"));
+
+        var result = await client.Vault.ListItemsAsync();
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("index 1", result.Error?.Message, StringComparison.Ordinal);
+        Assert.Contains("$.reprompt", result.Error?.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Second", result.Error?.Message, StringComparison.Ordinal);
+    }
+
     private static string ItemJson(string name) => new JsonObject
     {
         ["object"] = "item",

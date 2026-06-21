@@ -127,10 +127,56 @@ public sealed class VaultClient
         if (query.Trash) args.Add(CliArgument.Plain("--trash"));
         if (query.Archived) args.Add(CliArgument.Plain("--archived"));
         var process = await RunAsync(new CliCommand("list-items", [.. args]), false, cancellationToken);
-        var parsed = Deserialize(process, BitwardenJsonContext.Default.VaultItemArray, "The CLI returned an invalid item list.");
-        return parsed.IsSuccess && parsed.Value is not null
-            ? CliResult<IReadOnlyList<VaultItem>>.Success(parsed.Value, parsed.ExitCode, parsed.StandardError, parsed.Duration)
-            : CliResult<IReadOnlyList<VaultItem>>.Failure(parsed.Error!, parsed.ExitCode, parsed.StandardError, parsed.Duration);
+        if (!process.IsSuccess)
+        {
+            return process.ExitCode == -1
+                ? AccountResultFactory.MissingSession<IReadOnlyList<VaultItem>>()
+                : CliResultFactory.Failure<IReadOnlyList<VaultItem>>(process);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(process.StandardOutput);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return CliResultFactory.InvalidResponse<IReadOnlyList<VaultItem>>(
+                    process,
+                    "The CLI returned an item list whose root value is not an array.");
+            }
+
+            var items = new List<VaultItem>(document.RootElement.GetArrayLength());
+            var index = 0;
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                try
+                {
+                    var item = element.Deserialize(BitwardenJsonContext.Default.VaultItem);
+                    if (item is null)
+                    {
+                        return CliResultFactory.InvalidResponse<IReadOnlyList<VaultItem>>(
+                            process,
+                            $"The CLI returned a null item at index {index}.");
+                    }
+                    items.Add(item);
+                }
+                catch (JsonException exception)
+                {
+                    var path = string.IsNullOrWhiteSpace(exception.Path) ? "$" : exception.Path;
+                    return CliResultFactory.InvalidResponse<IReadOnlyList<VaultItem>>(
+                        process,
+                        $"The CLI item at index {index} could not be parsed at {path}: {exception.Message}");
+                }
+                index++;
+            }
+
+            return CliResultFactory.Success<IReadOnlyList<VaultItem>>(items, process);
+        }
+        catch (JsonException exception)
+        {
+            return CliResultFactory.InvalidResponse<IReadOnlyList<VaultItem>>(
+                process,
+                $"The CLI returned invalid item-list JSON at {exception.Path ?? "$"}: {exception.Message}");
+        }
     }
 
     private async Task<CliResult<string>> GetTextAsync(string kind, string id, CancellationToken cancellationToken)
