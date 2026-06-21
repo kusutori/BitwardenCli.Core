@@ -18,3 +18,7 @@ All notable changes to this project will be documented in this file.
 - Scalar username, password, URI, notes, TOTP and exposed-password queries.
 - Collection assignment and organization move commands.
 - Nullable-safe vault DTOs with forward-compatible unknown JSON fields.
+- Folder create, read, update, delete and search commands.
+- Attachment upload, download and delete commands with absolute-path validation.
+- Organization, collection and organization-collection listing.
+- Password and passphrase generation with typed options.

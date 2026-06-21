@@ -5,6 +5,10 @@ using BitwardenCli.Core.Models;
 using BitwardenCli.Core.Results;
 using BitwardenCli.Core.Synchronization;
 using BitwardenCli.Core.Vault;
+using BitwardenCli.Core.Attachments;
+using BitwardenCli.Core.Folders;
+using BitwardenCli.Core.Generator;
+using BitwardenCli.Core.Organizations;
 
 namespace BitwardenCli.Core;
 
@@ -19,6 +23,10 @@ public sealed class BitwardenCliClient
         Authentication = new AuthenticationClient(context);
         Synchronization = new SynchronizationClient(context);
         Vault = new VaultClient(context);
+        Folders = new FolderClient(context);
+        Attachments = new AttachmentClient(context);
+        Organizations = new OrganizationClient(context);
+        Generator = new GeneratorClient(context);
     }
 
     /// <summary>Gets the isolated account profile.</summary>
@@ -35,6 +43,15 @@ public sealed class BitwardenCliClient
 
     /// <summary>Gets vault item commands.</summary>
     public VaultClient Vault { get; }
+
+    /// <summary>Gets folder commands.</summary>
+    public FolderClient Folders { get; }
+    /// <summary>Gets attachment commands.</summary>
+    public AttachmentClient Attachments { get; }
+    /// <summary>Gets organization and collection commands.</summary>
+    public OrganizationClient Organizations { get; }
+    /// <summary>Gets password and passphrase generation commands.</summary>
+    public GeneratorClient Generator { get; }
 
     /// <summary>Gets the current account status.</summary>
     public Task<CliResult<BitwardenStatus>> GetStatusAsync(CancellationToken cancellationToken = default) =>

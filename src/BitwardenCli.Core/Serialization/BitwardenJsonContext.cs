@@ -8,5 +8,9 @@ namespace BitwardenCli.Core.Serialization;
 [JsonSerializable(typeof(VaultItem[]))]
 [JsonSerializable(typeof(VaultFolder))]
 [JsonSerializable(typeof(VaultFolder[]))]
+[JsonSerializable(typeof(BitwardenOrganization))]
+[JsonSerializable(typeof(BitwardenOrganization[]))]
+[JsonSerializable(typeof(BitwardenCollection))]
+[JsonSerializable(typeof(BitwardenCollection[]))]
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
 internal sealed partial class BitwardenJsonContext : JsonSerializerContext;
