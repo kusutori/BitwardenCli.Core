@@ -72,6 +72,26 @@ public sealed class AdvancedDomainClientTests
     }
 
     [Fact]
+    public async Task Import_content_uses_temporary_file_and_cleans_up()
+    {
+        using var temp = new TemporaryDirectory();
+        var runner = new CapturingRunner(CapturingRunner.Success("session"), CapturingRunner.Success());
+        var client = CreateClient(temp.GetPath("account"), runner);
+        await client.UnlockAsync(DelegateSecretProvider.FromMasterPassword("password"));
+
+        var result = await client.ImportExport.ImportContentAsync("bitwardenjson", """{"encrypted":false}""", fileExtension: "json");
+
+        Assert.True(result.IsSuccess);
+        var command = runner.Commands[1];
+        Assert.Equal("import-vault", command.Operation);
+        Assert.Equal("bitwardenjson", command.Arguments[^2].Value);
+        var tempPath = command.Arguments[^1].Value;
+        Assert.True(Path.IsPathFullyQualified(tempPath));
+        Assert.EndsWith(".json", tempPath, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(tempPath));
+    }
+
+    [Fact]
     public async Task Device_approval_is_scoped_to_organization()
     {
         using var temp = new TemporaryDirectory();

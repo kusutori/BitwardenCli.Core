@@ -36,6 +36,33 @@ public sealed class ImportExportClient
         return CliResultFactory.FromProcess(await _context.RunAsync(new CliCommand("import-vault", [.. args]), true, true, cancellationToken));
     }
 
+    public async Task<CliResult> ImportContentAsync(
+        string format,
+        string content,
+        string? organizationId = null,
+        string fileExtension = ".txt",
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(format);
+        ArgumentNullException.ThrowIfNull(content);
+        if (!_context.Session.IsUnlocked) return AccountResultFactory.MissingSession();
+
+        var extension = NormalizeExtension(fileExtension);
+        var tempPath = Path.Combine(Path.GetTempPath(), $"BitwardenCli.Core.Import-{Guid.NewGuid():N}{extension}");
+        try
+        {
+            await File.WriteAllTextAsync(tempPath, content, cancellationToken).ConfigureAwait(false);
+            return await ImportAsync(format, tempPath, organizationId, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+    }
+
     public async Task<CliResult> ExportAsync(VaultExportOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options); ValidateAbsolutePath(options.OutputPath, nameof(options.OutputPath));
@@ -50,6 +77,16 @@ public sealed class ImportExportClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("Path must be absolute.", parameterName);
+    }
+
+    private static string NormalizeExtension(string extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            return ".txt";
+        }
+
+        return extension.StartsWith(".", StringComparison.Ordinal) ? extension : $".{extension}";
     }
 }
 #pragma warning restore CS1591
