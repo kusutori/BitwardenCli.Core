@@ -70,6 +70,42 @@ public sealed class AdditionalDomainClientTests
         Assert.DoesNotContain(runner.Commands[0].Environment, x => x.Name == "BW_SESSION");
     }
 
+    [Fact]
+    public async Task Username_generator_is_local_and_does_not_require_session()
+    {
+        using var temp = new TemporaryDirectory();
+        var runner = new CapturingRunner();
+        var client = CreateClient(temp.GetPath("account"), runner);
+
+        var result = await client.Generator.GenerateUsernameAsync(new UsernameGenerationOptions { IncludeNumber = true });
+
+        Assert.True(result.IsSuccess);
+        Assert.False(string.IsNullOrWhiteSpace(result.Value));
+        Assert.Contains(result.Value!, char.IsDigit);
+        Assert.Empty(runner.Commands);
+    }
+
+    [Fact]
+    public async Task Username_generator_supports_email_and_website_prefixes()
+    {
+        using var temp = new TemporaryDirectory();
+        var client = CreateClient(temp.GetPath("account"), new CapturingRunner());
+
+        var email = await client.Generator.GenerateUsernameAsync(new UsernameGenerationOptions
+        {
+            Type = UsernameGenerationType.EmailPrefix,
+            Email = "User.Name+tag@example.com"
+        });
+        var website = await client.Generator.GenerateUsernameAsync(new UsernameGenerationOptions
+        {
+            Type = UsernameGenerationType.WebsitePrefix,
+            Website = "https://www.bitwarden.com/help"
+        });
+
+        Assert.Equal("usernametag", email.Value);
+        Assert.Equal("bitwarden", website.Value);
+    }
+
     private static BitwardenCliClient CreateClient(string directory, IBitwardenCliRunner runner) =>
         new BitwardenCliClientFactory(runner).Create(new BitwardenAccountProfile
         {

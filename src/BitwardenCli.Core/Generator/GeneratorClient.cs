@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using BitwardenCli.Core.Execution;
 using BitwardenCli.Core.Internal;
 using BitwardenCli.Core.Results;
@@ -26,8 +27,33 @@ public sealed record PassphraseGenerationOptions
     public bool IncludeNumber { get; init; }
 }
 
+public enum UsernameGenerationType
+{
+    RandomWord,
+    EmailPrefix,
+    WebsitePrefix
+}
+
+public sealed record UsernameGenerationOptions
+{
+    public UsernameGenerationType Type { get; init; } = UsernameGenerationType.RandomWord;
+    public bool Capitalize { get; init; }
+    public bool IncludeNumber { get; init; }
+    public string? Email { get; init; }
+    public string? Website { get; init; }
+}
+
 public sealed class GeneratorClient
 {
+    private static readonly string[] UsernameWords =
+    [
+        "able", "amber", "anchor", "apex", "atlas", "autumn", "binary", "bright",
+        "calm", "cedar", "cinder", "cobalt", "comet", "coral", "delta", "dune",
+        "ember", "fable", "frost", "harbor", "hazel", "lunar", "meadow", "nova",
+        "onyx", "orbit", "pixel", "quiet", "raven", "river", "sage", "scared",
+        "signal", "silver", "solace", "summit", "tidal", "velvet", "winter", "zenith"
+    ];
+
     private readonly AccountCommandContext _context;
     internal GeneratorClient(AccountCommandContext context) => _context = context;
 
@@ -53,6 +79,30 @@ public sealed class GeneratorClient
         return RunAsync("generate-passphrase", args, cancellationToken);
     }
 
+    public Task<CliResult<string>> GenerateUsernameAsync(UsernameGenerationOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        options ??= new UsernameGenerationOptions();
+        var username = options.Type switch
+        {
+            UsernameGenerationType.EmailPrefix => PrefixFromEmail(options.Email),
+            UsernameGenerationType.WebsitePrefix => PrefixFromWebsite(options.Website),
+            _ => UsernameWords[RandomNumberGenerator.GetInt32(UsernameWords.Length)]
+        };
+
+        if (options.Capitalize && username.Length > 0)
+        {
+            username = char.ToUpperInvariant(username[0]) + username[1..];
+        }
+
+        if (options.IncludeNumber)
+        {
+            username += RandomNumberGenerator.GetInt32(0, 10000).ToString("D4", CultureInfo.InvariantCulture);
+        }
+
+        return Task.FromResult(CliResult<string>.Success(username, 0, string.Empty, TimeSpan.Zero));
+    }
+
     private async Task<CliResult<string>> RunAsync(string operation, List<CliArgument> args, CancellationToken cancellationToken)
     {
         var process = await _context.RunAsync(new CliCommand(operation, [.. args]), false, false, cancellationToken);
@@ -63,6 +113,50 @@ public sealed class GeneratorClient
     {
         if (count is null) return; if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
         args.Add(CliArgument.Plain(name)); args.Add(CliArgument.Plain(count.Value.ToString(CultureInfo.InvariantCulture)));
+    }
+
+    private static string PrefixFromEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ArgumentException("Email is required for email-prefix username generation.", nameof(email));
+        }
+
+        var at = email.IndexOf('@', StringComparison.Ordinal);
+        var prefix = at > 0 ? email[..at] : email;
+        return SanitizeUsername(prefix);
+    }
+
+    private static string PrefixFromWebsite(string? website)
+    {
+        if (string.IsNullOrWhiteSpace(website))
+        {
+            throw new ArgumentException("Website is required for website-prefix username generation.", nameof(website));
+        }
+
+        var text = website.Trim();
+        if (!text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !text.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            text = $"https://{text}";
+        }
+
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return SanitizeUsername(website);
+        }
+
+        var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+            ? uri.Host[4..]
+            : uri.Host;
+        var firstPart = host.Split('.', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? host;
+        return SanitizeUsername(firstPart);
+    }
+
+    private static string SanitizeUsername(string value)
+    {
+        var chars = value.Trim().Where(char.IsLetterOrDigit).ToArray();
+        return chars.Length > 0 ? new string(chars).ToLowerInvariant() : UsernameWords[RandomNumberGenerator.GetInt32(UsernameWords.Length)];
     }
 }
 #pragma warning restore CS1591
