@@ -19,7 +19,7 @@ dotnet pack src/BitwardenCli.Core/BitwardenCli.Core.csproj -c Release -o artifac
 
 ## Release
 
-GitHub Actions publishes tagged releases to NuGet.org after building, testing, and validating the package. API key configuration, dry runs, and Tag conventions are documented in [`docs/nuget-release.md`](docs/nuget-release.md).
+GitHub Actions publishes tagged releases to NuGet.org through OIDC trusted publishing after building, testing, and validating the package. Policy configuration, dry runs, and Tag conventions are documented in [`docs/nuget-release.md`](docs/nuget-release.md).
 
 ## Quick start
 

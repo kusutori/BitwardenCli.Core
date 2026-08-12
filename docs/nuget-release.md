@@ -2,21 +2,32 @@
 
 The `Publish NuGet package` GitHub Actions workflow builds, tests, packs, validates, and publishes `BitwardenCli.Core` when a release tag is pushed.
 
-## Repository secret
+## NuGet.org trusted publishing policy
 
-Create a scoped API key at NuGet.org, then add it under **GitHub repository > Settings > Secrets and variables > Actions > Repository secrets**:
+Sign in to NuGet.org, open **Trusted Publishing**, and add a GitHub Actions policy with these exact values:
+
+| Policy field | Value |
+| --- | --- |
+| Repository owner | `kusutori` |
+| Repository | `BitwardenCli.Core` |
+| Workflow file | `publish-nuget.yml` |
+| Environment | `nuget-release` |
+
+Enter only the workflow file name, not `.github/workflows/publish-nuget.yml`. Select the NuGet.org user or organization that owns `BitwardenCli.Core` as the policy owner.
+
+The workflow requests a GitHub OIDC token and exchanges it through `NuGet/login@v1` for a one-hour temporary API key immediately before publishing. No long-lived NuGet API key is stored in GitHub.
+
+## GitHub configuration
+
+Create a GitHub Environment named `nuget-release`. Optional environment protection rules can require approval before publishing a tagged release.
+
+Add this repository secret under **Settings > Secrets and variables > Actions**:
 
 | Secret | Value |
 | --- | --- |
-| `NUGET_API_KEY` | NuGet.org API key with permission to push `BitwardenCli.Core` |
+| `NUGET_USER` | NuGet.org username/profile name that owns the trusted publishing policy; do not use an email address |
 
-Recommended NuGet.org API key settings:
-
-- Scope: **Push new packages and package versions**.
-- Package glob pattern: `BitwardenCli.Core`.
-- Expiration: the shortest operationally practical period; rotate it before expiry.
-
-Do not add the key to `nuget.config`, source files, logs, or repository variables.
+The workflow has `id-token: write` permission only so GitHub can issue the short-lived OIDC token. It retains read-only repository content access.
 
 ## Dry run
 
