@@ -1,0 +1,130 @@
+name: Publish NuGet package
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "NuGet version, for example 0.1.2 or 0.2.0-preview.1"
+        required: true
+        type: string
+      publish:
+        description: "Publish the package to NuGet.org"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  pack-and-publish:
+    name: Build, test, pack, and publish
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve package version
+        id: package
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+        run: |
+          $version = $env:REQUESTED_VERSION.Trim()
+          if ($version.StartsWith('v', [StringComparison]::OrdinalIgnoreCase)) {
+            $version = $version.Substring(1)
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$') {
+            throw "Version '$version' must be SemVer such as 0.1.2 or 0.2.0-preview.1."
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore BitwardenCli.Core.slnx
+
+      - name: Build
+        run: >-
+          dotnet build BitwardenCli.Core.slnx
+          -c Release
+          --no-restore
+          -p:Version=${{ steps.package.outputs.version }}
+          -p:ContinuousIntegrationBuild=true
+
+      - name: Run unit tests
+        run: >-
+          dotnet test tests/BitwardenCli.Core.Tests/BitwardenCli.Core.Tests.csproj
+          -c Release
+          --no-build
+          --no-restore
+
+      - name: Pack
+        run: >-
+          dotnet pack src/BitwardenCli.Core/BitwardenCli.Core.csproj
+          -c Release
+          --no-build
+          --no-restore
+          -o artifacts
+          -p:Version=${{ steps.package.outputs.version }}
+          -p:RepositoryUrl=https://github.com/kusutori/BitwardenCli.Core
+          -p:RepositoryCommit=${{ github.sha }}
+          -p:ContinuousIntegrationBuild=true
+
+      - name: Validate package contents
+        shell: pwsh
+        run: |
+          $version = '${{ steps.package.outputs.version }}'
+          $package = Get-Item "artifacts/BitwardenCli.Core.$version.nupkg"
+          $symbols = Get-Item "artifacts/BitwardenCli.Core.$version.snupkg"
+          $entries = tar -tf $package.FullName
+
+          if ($entries -notcontains 'lib/net10.0/BitwardenCli.Core.dll') {
+            throw 'Package is missing lib/net10.0/BitwardenCli.Core.dll.'
+          }
+          if ($entries -notcontains 'BitwardenCli.Core.nuspec') {
+            throw 'Package is missing BitwardenCli.Core.nuspec.'
+          }
+          if ($package.Length -eq 0 -or $symbols.Length -eq 0) {
+            throw 'One or more package files are empty.'
+          }
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitwardenCli.Core-${{ steps.package.outputs.version }}
+          path: artifacts/*.*nupkg
+          if-no-files-found: error
+
+      - name: Validate NuGet API key
+        if: github.event_name == 'push' || inputs.publish
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
+            throw 'The NUGET_API_KEY repository secret is not configured.'
+          }
+
+      - name: Publish to NuGet.org
+        if: github.event_name == 'push' || inputs.publish
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          $package = Get-Item "artifacts/BitwardenCli.Core.${{ steps.package.outputs.version }}.nupkg"
+          dotnet nuget push $package.FullName `
+            --source https://api.nuget.org/v3/index.json `
+            --skip-duplicate

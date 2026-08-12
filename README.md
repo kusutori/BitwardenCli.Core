@@ -6,7 +6,7 @@ The package targets .NET 10 and does not depend on WinUI, Reactor, WPF or any ot
 
 ## Status
 
-This package is under active development. Version `0.1.0` is the first local integration target for BitwardenForReactor.
+This package is under active development. The `0.1.x` line is the first integration target for BitwardenForReactor and other desktop clients.
 
 ## Build
 
@@ -16,6 +16,10 @@ dotnet build --no-restore
 dotnet test --no-build
 dotnet pack src/BitwardenCli.Core/BitwardenCli.Core.csproj -c Release -o artifacts
 ```
+
+## Release
+
+GitHub Actions publishes tagged releases to NuGet.org after building, testing, and validating the package. API key configuration, dry runs, and Tag conventions are documented in [`docs/nuget-release.md`](docs/nuget-release.md).
 
 ## Quick start
 
