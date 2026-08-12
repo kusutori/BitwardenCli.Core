@@ -45,6 +45,60 @@ public sealed class AuthenticationClientTests
     }
 
     [Fact]
+    public async Task Biometric_unlock_allows_interactive_prompt_and_keeps_session_in_memory()
+    {
+        using var temp = new TemporaryDirectory();
+        var runner = new CapturingRunner(CapturingRunner.Success("biometric-session"));
+        var client = CreateClient(temp.GetPath("account"), runner);
+
+        var result = await client.UnlockWithBiometricAsync();
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value?.HasSession);
+        Assert.True(client.Session.IsUnlocked);
+        var command = Assert.Single(runner.Commands);
+        Assert.Equal("unlock-biometric", command.Operation);
+        Assert.Equal(["unlock", "--raw"], command.Arguments.Select(argument => argument.Value).ToArray());
+        Assert.False(command.NoInteraction);
+        Assert.Contains(command.Environment, value =>
+            value.Name == "BITWARDENCLI_APPDATA_DIR" && value.Value == client.Profile.CliDataDirectory);
+        Assert.DoesNotContain(command.Environment, value => value.Name == "BW_SESSION");
+    }
+
+    [Fact]
+    public async Task Biometric_unlock_without_session_key_returns_invalid_response()
+    {
+        using var temp = new TemporaryDirectory();
+        var runner = new CapturingRunner(CapturingRunner.Success());
+        var client = CreateClient(temp.GetPath("account"), runner);
+
+        var result = await client.UnlockWithBiometricAsync();
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CliErrorCode.InvalidResponse, result.Error?.Code);
+        Assert.False(client.Session.IsUnlocked);
+    }
+
+    [Fact]
+    public async Task Biometric_unlock_cancelled_by_user_returns_stable_error_code()
+    {
+        using var temp = new TemporaryDirectory();
+        var runner = new CapturingRunner(new CliProcessResult(
+            CliProcessOutcome.Completed,
+            1,
+            string.Empty,
+            "Windows Hello prompt was canceled by the user.",
+            TimeSpan.FromMilliseconds(1)));
+        var client = CreateClient(temp.GetPath("account"), runner);
+
+        var result = await client.UnlockWithBiometricAsync();
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CliErrorCode.UserInteractionCancelled, result.Error?.Code);
+        Assert.False(client.Session.IsUnlocked);
+    }
+
+    [Fact]
     public async Task Password_login_returns_session_without_password_argument()
     {
         using var temp = new TemporaryDirectory();

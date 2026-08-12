@@ -82,6 +82,11 @@ public sealed class BitwardenCliClient
         CancellationToken cancellationToken = default) =>
         Authentication.UnlockAsync(secretProvider, cancellationToken);
 
+    /// <summary>Unlocks the account vault using the configured CLI's interactive biometric prompt.</summary>
+    public Task<CliResult<UnlockResult>> UnlockWithBiometricAsync(
+        CancellationToken cancellationToken = default) =>
+        Authentication.UnlockWithBiometricAsync(cancellationToken);
+
     /// <summary>Locks the account vault.</summary>
     public Task<CliResult> LockAsync(CancellationToken cancellationToken = default) =>
         Authentication.LockAsync(cancellationToken);

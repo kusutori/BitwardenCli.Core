@@ -50,6 +50,19 @@ internal static class CliErrorClassifier
 
         if (ContainsAny(
             normalized,
+            "cancelled",
+            "canceled",
+            "dismissed",
+            "user cancelled",
+            "user canceled",
+            "operation cancelled",
+            "operation canceled"))
+        {
+            return new CliError(CliErrorCode.UserInteractionCancelled, message);
+        }
+
+        if (ContainsAny(
+            normalized,
             "network",
             "socket",
             "econnreset",

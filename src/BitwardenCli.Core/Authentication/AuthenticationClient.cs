@@ -158,6 +158,42 @@ public sealed class AuthenticationClient
         return CliResultFactory.Success(new UnlockResult(true), process);
     }
 
+    /// <summary>
+    /// Unlocks the vault by allowing the configured CLI to show its own interactive prompt.
+    /// This is intended for compatible wrappers such as <c>bwbio.exe</c>, which can unlock
+    /// through Windows Hello and return the session key from <c>unlock --raw</c>.
+    /// </summary>
+    public async Task<CliResult<UnlockResult>> UnlockWithBiometricAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var process = await _context.RunAsync(
+            new CliCommand(
+                "unlock-biometric",
+                CliArgument.Plain("unlock"),
+                CliArgument.Plain("--raw"))
+            {
+                NoInteraction = false
+            },
+            includeSession: false,
+            serializeMutation: true,
+            cancellationToken).ConfigureAwait(false);
+        if (!process.IsSuccess)
+        {
+            return CliResultFactory.Failure<UnlockResult>(process);
+        }
+
+        var sessionKey = process.StandardOutput.Trim();
+        if (string.IsNullOrWhiteSpace(sessionKey))
+        {
+            return CliResultFactory.InvalidResponse<UnlockResult>(
+                process,
+                "Bitwarden CLI did not return a session key after biometric unlock.");
+        }
+
+        _context.Session.SetSessionKey(sessionKey);
+        return CliResultFactory.Success(new UnlockResult(true), process);
+    }
+
     /// <summary>Locks the account vault and clears the in-memory session.</summary>
     public async Task<CliResult> LockAsync(CancellationToken cancellationToken = default)
     {

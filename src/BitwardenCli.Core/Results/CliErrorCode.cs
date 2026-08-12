@@ -33,6 +33,9 @@ public enum CliErrorCode
     /// <summary>The caller cancelled the command.</summary>
     Cancelled,
 
+    /// <summary>The user cancelled or dismissed an interactive authentication prompt.</summary>
+    UserInteractionCancelled,
+
     /// <summary>The CLI returned data that could not be parsed.</summary>
     InvalidResponse,
 
